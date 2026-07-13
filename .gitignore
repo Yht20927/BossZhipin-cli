@@ -1,0 +1,10 @@
+node_modules/
+config.json
+logs/*.log
+logs/*.json
+logs/*.html
+storage/*.db.bak.*
+storage/*.db-wal
+storage/*.db-shm
+*.pid
+.DS_Store

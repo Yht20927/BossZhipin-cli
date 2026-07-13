@@ -1,0 +1,29 @@
+{
+  "name": "boss-cli",
+  "version": "1.0.0",
+  "license": "MIT",
+  "description": "BOSS 直聘 CLI 工具 — Bridge Server + 油猴脚本方案",
+  "main": "lib/client/bridge-client.js",
+  "bin": {
+    "boss": "./cli.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "server": "node server.js",
+    "help": "node cli.js help",
+    "search": "node cli.js search",
+    "job": "node cli.js job",
+    "me": "node cli.js me",
+    "friends": "node cli.js friends",
+    "chat": "node cli.js chat",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "ws": "^8.16.0"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.8"
+  }
+}
