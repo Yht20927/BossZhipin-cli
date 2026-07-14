@@ -9,8 +9,9 @@ const path = require('path');
 const { AuditLogger } = require('./lib/audit');
 const { BridgeClient } = require('./lib/client/bridge-client');
 const { transformResult } = require('./lib/transform');
+const { getCache } = require('./lib/cache/result-cache');
 const commands = require('./lib/commands');
-const { SITE } = require('./lib/commands/helpers');
+const { SITE, isRef, resolveRef } = require('./lib/commands/helpers');
 
 // Bridge 自愈代码：由 server/router.js 按需注入（每个 site 首次 eval 时自动 prepend）
 // 共享模块位于 lib/shared/bootstrap.js，cli.js 和 server/router.js 共用
@@ -85,6 +86,9 @@ const ctx = {
   config,
   bridgeCall,
   loggedCall,
+  cache: getCache(),
+  isRef,
+  resolveRef: (str) => resolveRef(str, getCache()),
   cmdSearch: null,
   cmdJob: null,
   cmdMe: null,
@@ -110,6 +114,7 @@ ctx.cmdGreetBatch = (args) => commands['greet-batch'](ctx, args);
 ctx.cmdLlmGreet = (args) => commands['llm-greet'](ctx, args);
 ctx.cmdLlmStats = (args) => commands['llm-stats'](ctx, args);
 ctx.cmdToken = (args) => commands.token(ctx, args);
+ctx.cmdRefresh = (args) => commands.refresh(ctx, args);
 
 // ═══════════════════════════════════════════════════════════
 // 帮助
@@ -169,6 +174,9 @@ BOSS Zhipin CLI (Bridge Framework)
   node cli.js status
       查看 Bridge 连接状态
 
+  node cli.js refresh
+      刷新 BOSS 会话（修复 code:37 / token 过期）
+
   前置条件：
   1. Bridge Server 运行中: node server.js
   2. 浏览器已安装油猴脚本 scripts/boss_zhipin.user.js
@@ -189,6 +197,37 @@ async function main() {
 
   if (!cmd || cmd === 'help' || cmd === '--help') {
     printHelp();
+    return;
+  }
+
+  // ── cache 命令 ──
+  if (cmd === 'cache') {
+    const sub = args[1];
+    const cache = getCache();
+    if (sub === 'list') {
+      const list = cache.list();
+      console.log(JSON.stringify(list, null, 2));
+      return;
+    }
+    if (sub === 'show') {
+      const invId = args[2];
+      if (!invId) { console.error('用法: node cli.js cache show <invId>'); process.exit(1); }
+      const data = cache.show(invId);
+      if (!data) { console.error(`缓存不存在: ${invId}`); process.exit(1); }
+      console.log(JSON.stringify(data, null, 2));
+      return;
+    }
+    if (sub === 'clean') {
+      const n = cache.gc();
+      console.log(`已清理 ${n} 条过期缓存`);
+      return;
+    }
+    if (sub === 'clear') {
+      cache.clear();
+      console.log('缓存已全部清除');
+      return;
+    }
+    console.error('用法: node cli.js cache <list|show <id>|clean|clear>');
     return;
   }
 

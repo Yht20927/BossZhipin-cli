@@ -1,8 +1,8 @@
 # boss-cli — BOSS 直聘 CLI 工具
 
-通过 Bridge Server + 油猴脚本架构，在命令行中操作 [BOSS 直聘](https://www.zhipin.com)，包括搜索职位、查看详情、浏览推荐、管理好友、拉取聊天记录等。
+通过 Bridge Server + 油猴脚本架构，在命令行中操作 [BOSS 直聘](https://www.zhipin.com)，包括搜索职位、智能匹配评分、批量打招呼、LLM 招呼语生成等。
 
-## 架构概览
+## 架构
 
 ```
 ┌──────────┐   HTTP (JSON)    ┌───────────────┐   WebSocket / HTTP Poll   ┌──────────────────┐
@@ -12,279 +12,213 @@
    localhost                      localhost:19425                           zhipin.com (含登录态)
 ```
 
-- **CLI** 将命令编译为 JavaScript 表达式，通过 HTTP POST 发送给 Bridge Server
-- **Bridge Server** 将表达式转发给浏览器（WebSocket 优先，HTTP 轮询兜底）
-- **油猴脚本** 在 `zhipin.com` 页面上下文中执行表达式（通过 `unsafeWindow.eval()`），直接调用 BOSS 直聘内部 API，利用浏览器已有的登录态和 Cookie
-- **结果** 沿原路返回，CLI 输出格式化 JSON
-
-这套架构解决了 Chrome Private Network Access (PNA) 限制：local loopback 请求直接在页面内通过 `GM_xmlhttpRequest` 或原生 `fetch` 发起到 localhost，无需公网中转。
+- **CLI** 将命令编译为 JS 表达式 → Bridge Server → 浏览器 eval → BOSS API
+- 所有请求由真实浏览器发起（真 TLS / Cookie / UA），反爬无感知
+- 结果经管线后处理（过滤/排序/评分/精简），通过 `@ref` 引用系统节省上下文
 
 ## 快速开始
 
-### 前置条件
+### 前置
 
 - **Node.js >= 18**
-- **Tampermonkey** (或 Violentmonkey/Greasemonkey) 浏览器扩展
-- **BOSS 直聘账号** 已在浏览器中登录
+- **Tampermonkey** 浏览器扩展
+- **BOSS 直聘账号** 已登录
 
-### 1. 安装依赖
+### 安装
 
 ```bash
-cd boss-cli
+git clone <repo-url> && cd boss-cli
 npm install
-```
-
-### 2. 配置
-
-```bash
 cp config.example.json config.json
 ```
 
-首次启动服务端时会自动生成 `config.json`（含随机 token），无需手动填写。可配置项：
-
-| 字段 | 默认值 | 说明 |
-|------|--------|------|
-| `bridge.host` | `127.0.0.1` | Bridge Server 监听地址 |
-| `bridge.port` | `19425` | Bridge Server 监听端口 |
-| `bridge.token` | 自动生成 | CLI 与 Server 之间的认证令牌 |
-| `bridge.heartbeatInterval` | `30000` | WebSocket 心跳间隔 (ms) |
-| `bridge.heartbeatMaxFailures` | `3` | 心跳失败多少次后断开 |
-| `bridge.requestTimeout` | `30000` | eval 请求超时 (ms) |
-
-### 3. 安装油猴脚本
-
-1. 打开 Tampermonkey 管理面板
-2. 新建脚本，将 `scripts/boss_zhipin.user.js` 内容粘贴进去
-3. 保存（确保 `@match` 匹配 `*://*.zhipin.com/*`）
-
-### 4. 启动 Bridge Server
+### 启动
 
 ```bash
-# 方式一：直接启动
-node server.js
+# 1. Bridge Server
+node server.js &
 
-# 方式二：通过管理脚本（支持 start/stop/status/restart）
-bash scripts/bridge.sh start
-```
+# 2. 安装油猴脚本 scripts/boss_zhipin.user.js 到 Tampermonkey
 
-### 5. 打开 BOSS 直聘页面
+# 3. 浏览器打开 zhipin.com 任意页面
 
-在安装了油猴脚本的浏览器中打开 `https://www.zhipin.com` 任意页面（需已登录）。
-
-### 6. 验证连接
-
-```bash
+# 4. 验证
 node cli.js status
-```
-
-看到 `zhipin.com` 连接即为正常：
-
-```json
-{
-  "ok": true,
-  "connections": {
-    "zhipin.com": [{ "id": "...", "alive": true }]
-  },
-  "totalConnections": 1
-}
+# → totalConnections >= 1 即正常
 ```
 
 ## 命令参考
 
-所有命令格式: `node cli.js <command> [args...] [--options]`
-
-### 职位搜索
+### 职位发现
 
 ```bash
-# 基础搜索
-node cli.js search python
+node cli.js search <keyword> [options]
+    --city <code>           城市代码 (node cli.js city)
+    --pages N --interval 秒  批量翻页搜索
+    --min-salary K           最低月薪 (K)
+    --sort salary-desc       按薪资排序
+    --limit N --dedup        限制数量 + 去重
+    --enrich                 薪资结构化
+    --online --no-negotiable HR在线 / 排除面议
+    --save csv|jsonl|db      导出结果
 
-# 指定城市（城市代码见 city 命令）
-node cli.js search 前端 --city 101010100
-
-# 限制数量
-node cli.js search java --limit 10
-
-# 按最低薪资过滤（K/月）
-node cli.js search golang --min-salary 20
-
-# 按薪资降序排列
-node cli.js search 后端 --sort salary-desc
-
-# 只看 HR 在线
-node cli.js search 产品经理 --online
-
-# 排除「面议」
-node cli.js search 运营 --no-negotiable
-
-# 组合管线
-node cli.js search 数据 --min-salary 15 --sort salary-desc --limit 20 --dedup --enrich
+node cli.js recommend [--city <code>]
 ```
 
-### 推荐职位
+### 匹配评分
 
 ```bash
-node cli.js recommend [--city 101010100] [--page 1]
+# 命令行快速评分
+node cli.js search python \
+    --match-skills "Python,FastAPI,PostgreSQL" \
+    --match-min-salary 15 \
+    --match-cities "北京,上海,深圳" \
+    --sort match-score
+
+# JSON 配置文件
+node cli.js search python --match-profile my-profile.json
 ```
 
-### 职位详情
+### 打招呼
 
 ```bash
-node cli.js job <securityId> [--lid <lid>]
+# 搜索 + 批量打招呼
+node cli.js greet-batch python --city 101290100 --count 10 --min-salary 10
+
+# 预览（不发送）
+node cli.js greet-batch python --count 5 --dry-run
+
+# 从缓存引用打招呼
+node cli.js greet-batch --refs @search-xxx:1,@search-xxx:3
+
+# 单条打招呼
+node cli.js contact <securityId> --jobId <id>
+node cli.js contact @search-xxx:2    # 用 @ref 引用
+```
+
+### LLM 招呼语
+
+```bash
+export LLM_API_KEY=sk-xxx
+export LLM_BASE_URL=https://api.deepseek.com
+export LLM_MODEL=deepseek-chat
+
+node cli.js llm-greet <securityId|@ref> --jobId <id> --resume cv.txt
+node cli.js llm-greet @search-xxx:1 --dry-run   # 预览不发送
+node cli.js llm-stats                            # LLM 调用统计
 ```
 
 ### 个人/社交
 
 ```bash
-node cli.js me                  # 当前用户信息
-node cli.js friends             # 好友/联系人列表
-node cli.js chat --secretId <id>  # 聊天消息历史
-node cli.js resume              # 简历完成度
-node cli.js expect              # 期望职位列表
+node cli.js me                 # 用户信息
+node cli.js friends            # 好友列表
+node cli.js chat --secretId <id> | @ref  # 聊天历史
+node cli.js resume             # 简历完成度
+node cli.js expect             # 期望职位
 ```
 
 ### 数据/参考
 
 ```bash
-node cli.js city                # 城市站点数据（含城市代码）
-node cli.js filters             # 搜索过滤条件（薪资区间/经验/学历等）
-node cli.js industries          # 行业分类
+node cli.js city               # 城市代码
+node cli.js filters            # 搜索过滤条件
+node cli.js industries         # 行业分类
 ```
 
-### 管线处理
+### 系统
 
-`search` 和 `recommend` 命令支持管线后处理，可在服务器返回结果后进一步过滤和格式化：
+```bash
+node cli.js status             # Bridge 连接状态
+node cli.js refresh            # 刷新 BOSS 会话（修复 code:37）
+node cli.js token info         # 查看 passport_config 缓存
+node cli.js token gen          # 生成 __zp_stoken__
+node cli.js cache list         # 结果缓存列表
+node cli.js cache clean        # 清理过期缓存
+```
+
+## @ref 引用系统
+
+搜索/推荐/好友结果自动缓存到 `~/.boss/cache/`，输出中长 ID 替换为精确引用：
+
+```json
+{
+  "_invId": "search-260714-131522-a3f2",
+  "jobList": [
+    { "jobName": "Python工程师", "salaryDesc": "15-25K", "_ref": "@search-260714-131522-a3f2:1" }
+  ]
+}
+```
+
+下游命令直接使用 `@invId:N` 引用，无需复制粘贴长 ID：
+
+```bash
+node cli.js job @search-260714-131522-a3f2:1
+node cli.js contact @search-260714-131522-a3f2:3
+```
+
+**输出体积对比**：15 个岗位从 ~12KB → ~4KB，节省 ~65%。
+
+## 管线选项速查
 
 | 选项 | 说明 |
 |------|------|
-| `--min-salary <K>` | 最低月薪过滤（单位 K） |
-| `--max-salary <K>` | 最高月薪过滤（单位 K） |
-| `--sort salary-desc` | 按最低薪资降序 |
-| `--sort salary-asc` | 按最低薪资升序 |
-| `--limit <N>` | 限制结果数量 |
-| `--dedup` | 按职位 ID 去重 |
-| `--enrich` | 薪资结构化解析（附 `_salary` 字段） |
-| `--online` | 只看 HR 在线 |
-| `--no-negotiable` | 排除「面议」 |
-| `--skills <s1,s2>` | 按技能过滤（任意匹配） |
+| `--min-salary <K>` | 最低月薪过滤 |
+| `--sort salary-desc\|asc` | 薪资排序 |
+| `--sort match-score` | 按匹配度排序 |
+| `--limit <N>` | 限制数量 |
+| `--dedup` | 去重 |
+| `--enrich` | 薪资结构化 |
+| `--online` | HR 在线 |
+| `--no-negotiable` | 排除面议 |
+| `--skills s1,s2` | 技能过滤 |
+| `--pages N` | 批量翻页 |
+| `--interval 秒` | 翻页间隔 |
+| `--save csv\|jsonl\|db` | 导出 |
+| `--no-cache` | 不使用缓存（输出含完整 ID） |
+| `--raw` | 原始输出 |
+| `--no-log` | 不写审计日志 |
 
-### 全局选项
+## LLM 配置
 
-| 选项 | 说明 |
-|------|------|
-| `--raw` | 输出原始数据（跳过 transform 精简） |
-| `--no-log` | 不写入审计日志 |
+| 环境变量 | 说明 | 默认 |
+|----------|------|------|
+| `LLM_API_KEY` | API Key（必填） | - |
+| `LLM_BASE_URL` | 端点 URL | `https://api.openai.com/v1` |
+| `LLM_MODEL` | 模型名 | `gpt-4o-mini` |
+
+支持任意 OpenAI 兼容端点：DeepSeek / OpenAI / Claude / 通义千问 / Ollama …
 
 ## 项目结构
 
 ```
 boss-cli/
 ├── cli.js                     # CLI 入口
-├── server.js                  # Bridge Server 入口
-├── config.example.json        # 配置模板
-├── config.json                # 运行时配置（gitignore）
-├── site.json                  # 城市站点数据（缓存）
-├── package.json
+├── server.js                  # Bridge Server
 ├── scripts/
-│   ├── boss_zhipin.user.js    # 油猴脚本（浏览器端）
-│   └── bridge.sh              # Bridge Server 生命周期管理
-└── lib/
-    ├── client/
-    │   └── bridge-client.js   # Bridge HTTP 客户端（CLI → Server）
-    ├── server/
-    │   ├── router.js           # HTTP API 路由 + 认证 + 节流
-    │   ├── ws-hub.js          # WebSocket 连接管理 + 心跳
-    │   └── registry.js        # 连接注册表（site → connections）
-    ├── commands/
-    │   ├── index.js            # 命令注册表
-    │   ├── helpers.js          # 参数解析 + 常量
-    │   ├── search.js           # 搜索（含管线后处理）
-    │   ├── job.js              # 职位详情
-    │   ├── me.js               # 用户信息
-    │   ├── friends.js          # 好友列表
-    │   ├── chat.js             # 聊天记录
-    │   ├── city.js             # 城市数据
-    │   ├── recommend.js        # 推荐职位
-    │   ├── filters.js          # 过滤条件
-    │   ├── industries.js       # 行业分类
-    │   ├── resume.js           # 简历完成度
-    │   └── expect.js           # 期望职位
-    ├── pipeline/
-    │   ├── index.js            # Pipeline 框架（filter/map/sort/enrich/dedup）
-    │   ├── filters.js          # 预置过滤器（薪资/技能/城市/公司/状态）
-    │   └── enrich.js           # 数据富化（薪资解析/评分）
-    ├── output/
-    │   └── format.js           # 输出格式化（JSON/Table/CSV/Summary）
-    ├── shared/
-    │   ├── protocol.js         # 消息类型常量 + 校验
-    │   ├── bootstrap.js        # Bridge 自愈代码（共享模块）
-    │   └── serialize.js        # 序列化工具
-    ├── expression.js           # Expression Builder（安全构建浏览器侧表达式）
-    ├── transform.js            # 数据精简层
-    ├── jitter.js               # 抖动工具
-    └── audit.js                # 审计日志
+│   └── boss_zhipin.user.js    # 油猴脚本
+├── lib/
+│   ├── client/                # Bridge HTTP 客户端
+│   ├── server/                # WebSocket + Router + Registry
+│   ├── commands/              # 命令实现 (17个)
+│   ├── pipeline/              # 管线 (filter/sort/enrich/match/semantic)
+│   ├── cache/                 # 结果缓存 + @ref 系统
+│   ├── llm/                   # LLM 调用封装
+│   ├── output/                # 格式化 + CSV/SQLite 导出
+│   ├── shared/                # 协议 + 自愈代码
+│   └── audit.js               # 审计日志 + LLM Telemetry
+└── docs/
+    └── anti-crawling.md       # BOSS 反爬深度参考
 ```
 
-## 核心设计
+## 文档
 
-### Bridge Framework
-
-Bridge Server 作为 CLI 和浏览器之间的代理，解决了两个核心问题：
-
-1. **Chrome PNA (Private Network Access)** — Chrome 限制公网站点向 localhost 发起请求。油猴脚本通过 `GM_xmlhttpRequest` 绕过限制，或通过 WebSocket 建立双工通道。
-
-2. **登录态复用** — API 调用在浏览器页面上下文中执行，自动携带 BOSS 直聘的 Cookie 和 Token，无需在 CLI 中管理登录。
-
-### 通信路径
-
-- **WebSocket (优先)**: 油猴脚本 → `ws://127.0.0.1:19425` → Bridge Server
-  - 双向实时通信，低延迟
-  - 自带心跳保活 + 断线重连
-- **HTTP Polling (兜底)**: 油猴脚本 → `GET /api/poll` → Bridge Server
-  - Websocket 不可用时的降级方案
-
-### 节流保护 (P1)
-
-服务端对写操作（`opType='write'`）实施 per-site 最小间隔节流（~47.5s ±15%），防止 Agent 脚本或批量操作因缺少 sleep 而高频请求触发风控。这是结构级保护，无论 CLI 怎么调用都无法突破下限。
-
-### Bridge 自愈
-
-Server 会检测浏览器侧 `window.__bridge` 是否存在；若因页面刷新/SPA 导航丢失，自动在下次 eval 前重新注入，确保 API 调用始终可用。
-
-## API 端点
-
-Bridge Server 暴露以下 HTTP 端点：
-
-| 方法 | 路径 | 认证 | 说明 |
-|------|------|------|------|
-| `POST` | `/api/call` | ✅ | 向浏览器派发 eval 表达式 |
-| `POST` | `/api/connect` | ✅ | 油猴脚本注册连接 |
-| `GET` | `/api/poll` | ✅ | HTTP 轮询（WebSocket 不可用时） |
-| `POST` | `/api/result` | ✅ | 油猴脚本返回 eval 结果 |
-| `GET` | `/api/health` | ❌ | 健康检查（公开） |
-| `GET` | `/api/status` | ❌ | 连接状态（公开） |
-
-## 开发
-
-### 测试
-
-```bash
-npm test                 # 运行 vitest 测试套件
-```
-
-### 调试
-
-```bash
-# 查看原始 API 响应（跳过 transform）
-node cli.js search python --raw
-
-# 跳过审计日志
-node cli.js search python --no-log
-
-# 查看命令行帮助
-node cli.js help
-```
+- [DISCLAIMER.md](DISCLAIMER.md) — 免责声明
+- [CONTRIBUTING.md](CONTRIBUTING.md) — 贡献指南
+- [SECURITY.md](SECURITY.md) — 安全策略
+- [SKILL.md](SKILL.md) — AI Agent 使用说明
+- [docs/anti-crawling.md](docs/anti-crawling.md) — 反爬知识
 
 ## License
 
-MIT
+MIT — 详见 [LICENSE](LICENSE)

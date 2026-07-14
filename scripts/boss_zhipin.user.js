@@ -518,6 +518,13 @@
       } catch(e) { return null; }
     },
 
+    // ── 会话刷新（修复 code:37 / token 过期）──
+    // 导航到 BOSS 职位页，触发完整的 token 刷新周期
+    refreshSession: function() {
+      setTimeout(function() { location.href = 'https://www.zhipin.com/web/geek/jobs'; }, 300);
+      return { ok: true, action: 'navigate', to: '/web/geek/jobs' };
+    },
+
     // ── 工具 ──
     ensureToken: ensureToken,
     token: token,
