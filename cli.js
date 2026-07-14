@@ -105,6 +105,11 @@ ctx.cmdFilters = (args) => commands.filters(ctx, args);
 ctx.cmdIndustries = (args) => commands.industries(ctx, args);
 ctx.cmdResume = (args) => commands.resume(ctx, args);
 ctx.cmdExpect = (args) => commands.expect(ctx, args);
+ctx.cmdContact = (args) => commands.contact(ctx, args);
+ctx.cmdGreetBatch = (args) => commands['greet-batch'](ctx, args);
+ctx.cmdLlmGreet = (args) => commands['llm-greet'](ctx, args);
+ctx.cmdLlmStats = (args) => commands['llm-stats'](ctx, args);
+ctx.cmdToken = (args) => commands.token(ctx, args);
 
 // ═══════════════════════════════════════════════════════════
 // 帮助
@@ -118,6 +123,7 @@ BOSS Zhipin CLI (Bridge Framework)
   node cli.js search <keyword> [--city 101290100] [--page 1] [--pageSize 15]
       搜索职位 — 支持 --experience --degree --salary --industry --scale --jobType
       管线选项: --min-salary <K> --sort salary-desc --limit 10 --dedup --enrich
+      批量翻页: --pages <N> [--interval <秒>]
 
   node cli.js recommend [--city 101290100] [--page 1]
       推荐职位列表（固定 15 条/页）
@@ -135,6 +141,14 @@ BOSS Zhipin CLI (Bridge Framework)
   node cli.js chat --secretId <secretId> [--lastId <id>] [--type 0]
       拉取聊天消息历史
 
+  node cli.js contact <securityId> --jobId <encryptJobId> [--lid <lid>]
+      发送沟通请求（向 HR/老板打招呼）
+
+  node cli.js greet-batch <keyword> [--count 5] [--min-salary <K>] [--interval 50]
+      搜索 + 批量打招呼（自动搜前 N 个职位，逐一发送沟通请求）
+      支持: --dry-run --resume <path> --exclude <kw1,kw2>
+
+  个人资料：
   node cli.js resume
       查看简历完成度
 

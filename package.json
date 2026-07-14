@@ -18,6 +18,7 @@
     "me": "node cli.js me",
     "friends": "node cli.js friends",
     "chat": "node cli.js chat",
+    "contact": "node cli.js contact",
     "test": "vitest run"
   },
   "dependencies": {

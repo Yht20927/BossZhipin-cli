@@ -1,0 +1,10 @@
+{
+  "skills": ["JavaScript", "Node.js", "React", "TypeScript", "Vue", "Python"],
+  "minSalary": 20,
+  "preferredCities": ["北京", "上海", "深圳", "杭州"],
+  "preferredScales": ["500-999人", "1000-9999人", "10000人以上"],
+  "preferredIndustries": ["互联网", "人工智能", "计算机软件", "大数据"],
+  "preferredStages": ["C轮", "D轮及以上", "上市公司", "不需要融资"],
+  "excludeCompanies": ["外包", "外派", "驻场"],
+  "excludeSkills": ["PHP", "jQuery", "WordPress"]
+}

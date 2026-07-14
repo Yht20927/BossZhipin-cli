@@ -1,0 +1,21 @@
+curl ^"https://m.zhipin.com/wapi/zpgeek/friend/add.json?securityId=CwfYf2o4dT1hP-N1J7mLx5En8AsCQaMQNFHyy_-sZFCzgly5omuufUJt7SgNCOVNH3yJqWTg0JYf5-Y_K1HAqiKidBAWW803JFTQo7O5FGAeAwZ39FmdQ_mDrLB6GRXbCy-5naH6U51Ck5htxDr7GYGyK95NTeayMksshJOtfkGr8odvm64b0jahdsbevU9ZjiRWglPFdTiLJg05gqxzb-7mKEToQ49_xc9_7RcSBTsL73k2RorvTh5KKSRbIClugwbkEnJELI1vEw0zEEC51IN6hOBZG-JIxDzs4sLActI~^&jobId=24b83dfe0cbf59a90nB_3NW1ElBT^&lid=1yT9mTvAhRH.search.28^" ^
+  -X ^"POST^" ^
+  -H ^"accept: */*^" ^
+  -H ^"accept-language: zh-CN,zh;q=0.9,en;q=0.8^" ^
+  -H ^"cache-control: no-cache^" ^
+  -H ^"content-length: 0^" ^
+  -b ^"lastCity=101290100; __zp_seo_uuid__=ae2ba8eb-12c7-4656-9d8b-8b8d63a29044; __l=r=https^%^3A^%^2F^%^2Fwww.baidu.com^%^2Flink^%^3Furl^%^3DX6E1s7ER3jS37bOl09z1Hw4sZYm8nvojAt3WDzrzN0G^%^26wd^%^3D^%^26eqid^%^3Dd1ac08ec01d88d03000000066a54ce74^&l=^%^2F^&s=1; __g=-; ab_guid=e587f379-46fd-4a9e-adbd-bed6ff5594f2; wt2=DeBq2Kte-8XmAOSsbL8TRZ_6Tuv8kbgCAgGvpXUuki0MFd5lq-J1BTbF1urk_fgPU266mh71eqhqZGzS-SeH0OQ~~; wbg=0; zp_at=1YJ9StmkseLnUO6GUAiWcOSky9fbiYo3-wzzgmkMUkk~; bst=V2R94nFOb-2F9uVtRuxxgYKS2w7DrUwik~^|R94nFOb-2F9uVtRuxxgYKS2w7DrUxCo~; __c=1783913976; __a=11029372.1764666239.1772803189.1783913976.57.5.13.57; __zp_stoken__=4f4fgUzzDpMK8w7vCvktHwoQ^%^2BUzA^%^2FQUBTPFlTPlM8bzBUOkFUVEEcw53Di8Kjcm53w6TCrsOZQENZQTxTPD9BWVQzWVVUOjxUPlTEvcOBPD5UwrI^%^2FSTXCjsOBwopycF7Dii7CrsOBKMKiw4FHw7HDmQ7ChSjCucOULDEmEHgjJmt1ESMbXRAmCloKJXkRG1pgdmFceBEKI1okDDQzUnTDk1TDlBHDizzCugrCulTDklQ6QVQsWFrCsUAsPUA6WVRLxL3EvsWXxL^%^2FFksS9xL7Fl8OnxJfDucS^%^2BxZfEv8OXxL3EvsWXw7^%^2FDt8S9xL7Fl8S^%^2FxJTCukdZwqfDlGR5xJHDlMSExKDCnnTDqsKxxJNkw4VMwrlbwrvCg8K7wq^%^2FCrcOXwp3ChMKtw4B3TWbDgGlrW8K6w4NccsK^%^2FcHpie1rCgsOZc3pPdcKJJHcOdAo^%^2BKcK7xJXDig^%^3D^%^3D^" ^
+  -H ^"origin: https://m.zhipin.com^" ^
+  -H ^"pragma: no-cache^" ^
+  -H ^"priority: u=1, i^" ^
+  -H ^"referer: https://m.zhipin.com/job_detail/24b83dfe0cbf59a90nB_3NW1ElBT.html?ka=job_list_28_blank^&lid=1yT9mTvAhRH.search.28^" ^
+  -H ^"sec-ch-ua: ^\^"Google Chrome^\^";v=^\^"149^\^", ^\^"Chromium^\^";v=^\^"149^\^", ^\^"Not)A;Brand^\^";v=^\^"24^\^"^" ^
+  -H ^"sec-ch-ua-mobile: ?0^" ^
+  -H ^"sec-ch-ua-platform: ^\^"Windows^\^"^" ^
+  -H ^"sec-fetch-dest: empty^" ^
+  -H ^"sec-fetch-mode: cors^" ^
+  -H ^"sec-fetch-site: same-origin^" ^
+  -H ^"traceid: F-0019f599211dcy9XSFS0cE^" ^
+  -H ^"user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36^" ^
+  -H ^"x-requested-with: XMLHttpRequest^" ^
+  -H ^"zp_token: V2R94nFOb-2F9uVtRuxxgYKS2w7DrUwik~^|R94nFOb-2F9uVtRuxxgYKS2w7DrUxCo~^"

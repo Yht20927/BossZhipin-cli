@@ -22,7 +22,7 @@
   const CONFIG = {
     server: 'http://127.0.0.1:19425',
     site: 'zhipin.com',
-    token: localStorage.getItem('boss_bridge_token') || 'asdfghjkl',
+    token: localStorage.getItem('boss_bridge_token') || '6831ace8fd9094effe45913acef94988eb1224700460ef3f',
     reconnectDelay: 2000 + Math.floor(Math.random() * 1000),
   };
 
@@ -30,6 +30,9 @@
   let registered = false;
   let retryCount = 0;
   let pollFailCount = 0;
+  let wsActive = false;   // WebSocket 是否活跃（优先于 HTTP 轮询）
+  let wsSocket = null;
+  let wsReconnectTimer = null;
 
   function gmFetch(url, opts) {
     var headers = Object.assign({}, opts && opts.headers);
@@ -45,6 +48,133 @@
   }
 
   async function connect() {
+    // 优先尝试 WebSocket，失败再回退 HTTP 轮询
+    connectWS();
+    // HTTP 轮询作为兜底（WebSocket 连接成功后会暂停轮询）
+    if (!registered) {
+      setTimeout(function() {
+        if (!wsActive) connectHTTP();
+      }, 3000);
+    }
+  }
+
+  // ── WebSocket 连接（优先路径）──
+  function connectWS() {
+    if (wsSocket) {
+      try { wsSocket.close(); } catch(e) {}
+      wsSocket = null;
+    }
+    if (wsReconnectTimer) { clearTimeout(wsReconnectTimer); wsReconnectTimer = null; }
+
+    var wsUrl = CONFIG.server.replace(/^http/, 'ws');
+    try {
+      wsSocket = new WebSocket(wsUrl);
+    } catch(e) {
+      console.warn('[Bridge:BOSS] WebSocket 创建失败:', e.message);
+      wsSocket = null;
+      return;
+    }
+
+    wsSocket.onopen = function() {
+      console.log('[Bridge:BOSS] WebSocket 已连接，发送 hello...');
+      // 发送 hello 握手
+      wsSocket.send(JSON.stringify({
+        type: 'hello',
+        site: CONFIG.site,
+        url: location.href,
+        title: document.title,
+        userAgent: navigator.userAgent,
+      }));
+      // WebSocket 连接成功即标记活跃，暂停 HTTP 轮询避免冲突
+      wsActive = true;
+      connected = true;
+      registered = true;
+      retryCount = 0;
+      console.log('[Bridge:BOSS] WebSocket 活跃，HTTP 轮询已暂停');
+    };
+
+    wsSocket.onmessage = function(event) {
+      var msg;
+      try { msg = JSON.parse(event.data); } catch(e) { return; }
+
+      switch (msg.type) {
+        case 'eval':
+          // 执行表达式并返回结果
+          handleEval(msg);
+          break;
+
+        case 'ping':
+          // 心跳响应
+          try {
+            wsSocket.send(JSON.stringify({ type: 'pong' }));
+          } catch(e) {}
+          break;
+
+        case 'bye':
+          console.warn('[Bridge:BOSS] 服务器发送 bye:', msg.reason || 'unknown');
+          break;
+
+        default:
+          // ignore unknown messages
+          break;
+      }
+    };
+
+    wsSocket.onclose = function(event) {
+      console.warn('[Bridge:BOSS] WebSocket 断开 (code=' + event.code + '), 回退 HTTP 轮询');
+      wsActive = false;
+      wsSocket = null;
+      connected = false;
+      registered = false;
+      // 延迟重连
+      var delay = CONFIG.reconnectDelay * (1 + Math.random());
+      wsReconnectTimer = setTimeout(function() {
+        console.log('[Bridge:BOSS] 尝试 WebSocket 重连...');
+        connectWS();
+      }, delay);
+    };
+
+    wsSocket.onerror = function(err) {
+      console.warn('[Bridge:BOSS] WebSocket 错误，将回退 HTTP 轮询');
+      wsActive = false;
+      if (wsSocket) {
+        try { wsSocket.close(); } catch(e) {}
+        wsSocket = null;
+      }
+    };
+  }
+
+  // ── eval 处理（WebSocket 和 HTTP 轮询共用）──
+  async function handleEval(msg) {
+    try {
+      var result = (0, unsafeWindow.eval)(msg.expression);
+      if (msg.awaitPromise !== false) result = await Promise.resolve(result);
+      var payload = { id: msg.id, value: safeSerialize(result) };
+      if (wsActive && wsSocket && wsSocket.readyState === 1) {
+        wsSocket.send(JSON.stringify({ type: 'result', id: msg.id, value: safeSerialize(result) }));
+      } else {
+        await gmFetch(CONFIG.server + '/api/result', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          data: JSON.stringify(payload),
+        });
+      }
+    } catch (e) {
+      var errPayload = { id: msg.id, error: e.message || String(e) };
+      if (wsActive && wsSocket && wsSocket.readyState === 1) {
+        wsSocket.send(JSON.stringify({ type: 'result', id: msg.id, error: e.message || String(e) }));
+      } else {
+        await gmFetch(CONFIG.server + '/api/result', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          data: JSON.stringify(errPayload),
+        });
+      }
+    }
+  }
+
+  // ── HTTP 轮询连接（兜底路径）──
+  async function connectHTTP() {
     if (!registered) {
       try {
         console.log('[Bridge:BOSS] Registering via GM_xmlhttpRequest...');
@@ -79,6 +209,11 @@
   }
 
   async function poll() {
+    // WebSocket 活跃时暂停 HTTP 轮询
+    if (wsActive) {
+      setTimeout(poll, 5000); // 每 5s 检查一次 WS 状态
+      return;
+    }
     if (!registered) return;
     try {
       var r = await gmFetch(CONFIG.server + '/api/poll?site=' + CONFIG.site, { method: 'GET' });
@@ -88,21 +223,7 @@
       if (msg.type === 'eval') {
         connected = true;
         pollFailCount = 0;
-        try {
-          var result = (0, unsafeWindow.eval)(msg.expression);
-          if (msg.awaitPromise !== false) result = await Promise.resolve(result);
-          await gmFetch(CONFIG.server + '/api/result', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            data: JSON.stringify({ id: msg.id, value: safeSerialize(result) }),
-          });
-        } catch (e) {
-          await gmFetch(CONFIG.server + '/api/result', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            data: JSON.stringify({ id: msg.id, error: e.message || String(e) }),
-          });
-        }
+        await handleEval(msg);
         poll();
       } else {
         connected = true;
@@ -352,6 +473,49 @@
     // 简历限制列表
     resumeRestrictList: function() {
       return call('GET', '/wapi/zpgeek/resume/restrict/list.json');
+    },
+
+    // ── 打招呼 / 沟通 ──
+    addFriend: function(sid, jid, lid) {
+      var url = BASE + '/wapi/zpgeek/friend/add.json' + buildQuery({ securityId: sid, jobId: jid, lid: lid || '' });
+      return fetch(url, { method: 'POST', credentials: 'include', headers: headers('POST', false) })
+        .then(function(r) { return r.json(); });
+    },
+
+    // ── Token 生成（__zp_stoken__）──
+    // 暴露 security iframe 中的 ABC 加密类
+    exposeAbc: function() {
+      if (window.__BOSS_ABC__) return true;
+      try {
+        for (var i = 0; i < window.frames.length; i++) {
+          try {
+            var fw = window.frames[i];
+            if (fw && fw.ABC && typeof fw.ABC === 'function') {
+              window.__BOSS_ABC__ = fw.ABC;
+              return true;
+            }
+          } catch(e) {}
+        }
+      } catch(e) {}
+      return false;
+    },
+
+    hasAbc: function() {
+      return !!window.__BOSS_ABC__ || this.exposeAbc();
+    },
+
+    genStoken: function(seed, ts) {
+      if (!this.exposeAbc()) throw new Error('ABC not found — security iframe may not be loaded');
+      var correctedTs = parseInt(ts) + 60 * (480 + new Date().getTimezoneOffset()) * 1000;
+      var token = (new window.__BOSS_ABC__()).z(seed, correctedTs);
+      return { token: token, tokenEncoded: encodeURIComponent(token), tsUsed: correctedTs };
+    },
+
+    getPassportConfig: function() {
+      try {
+        var raw = localStorage.getItem('passport_config');
+        return raw ? JSON.parse(raw) : null;
+      } catch(e) { return null; }
     },
 
     // ── 工具 ──
