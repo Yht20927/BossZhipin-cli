@@ -2,6 +2,8 @@
 
 通过 Bridge Server + 油猴脚本架构，在命令行中操作 [BOSS 直聘](https://www.zhipin.com)，包括搜索职位、智能匹配评分、批量打招呼、LLM 招呼语生成等。
 
+> ⚠️ **重要提示**：本项目内置写操作强制节流（最小间隔约 48 秒），仅用于**个人求职**。禁止用于大规模采集、高频群发或任何违反平台服务条款的行为。详见 [免责声明](DISCLAIMER.md)。
+
 ## 架构
 
 ```
@@ -13,7 +15,7 @@
 ```
 
 - **CLI** 将命令编译为 JS 表达式 → Bridge Server → 浏览器 eval → BOSS API
-- 所有请求由真实浏览器发起（真 TLS / Cookie / UA），反爬无感知
+- 所有请求由你已登录的浏览器发起，使用浏览器原生 `fetch`，自动携带已有的 Cookie 和登录态
 - 结果经管线后处理（过滤/排序/评分/精简），通过 `@ref` 引用系统节省上下文
 
 ## 快速开始
@@ -82,10 +84,10 @@ node cli.js search python --match-profile my-profile.json
 ### 打招呼
 
 ```bash
-# 搜索 + 批量打招呼
+# 搜索 + 批量打招呼（写操作自动节流约 48s/条）
 node cli.js greet-batch python --city 101290100 --count 10 --min-salary 10
 
-# 预览（不发送）
+# 预览（强烈建议先预览）
 node cli.js greet-batch python --count 5 --dry-run
 
 # 从缓存引用打招呼
@@ -130,7 +132,7 @@ node cli.js industries         # 行业分类
 
 ```bash
 node cli.js status             # Bridge 连接状态
-node cli.js refresh            # 刷新 BOSS 会话（修复 code:37）
+node cli.js refresh            # 刷新会话（修复 code:37）
 node cli.js token info         # 查看 passport_config 缓存
 node cli.js token gen          # 生成 __zp_stoken__
 node cli.js cache list         # 结果缓存列表
@@ -208,7 +210,7 @@ boss-cli/
 │   ├── shared/                # 协议 + 自愈代码
 │   └── audit.js               # 审计日志 + LLM Telemetry
 └── docs/
-    └── anti-crawling.md       # BOSS 反爬深度参考
+    └── platform-notes.md      # 平台使用说明
 ```
 
 ## 文档
@@ -217,7 +219,7 @@ boss-cli/
 - [CONTRIBUTING.md](CONTRIBUTING.md) — 贡献指南
 - [SECURITY.md](SECURITY.md) — 安全策略
 - [SKILL.md](SKILL.md) — AI Agent 使用说明
-- [docs/anti-crawling.md](docs/anti-crawling.md) — 反爬知识
+- [docs/platform-notes.md](docs/platform-notes.md) — 平台使用说明
 
 ## License
 

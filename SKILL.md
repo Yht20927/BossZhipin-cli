@@ -4,13 +4,13 @@
 
 ## 1. 项目本质
 
-`boss-cli` 通过 **Bridge Server + 油猴脚本** 架构，让 CLI 驱动浏览器发起 BOSS 直聘 API 调用。
+`boss-cli` 通过 **Bridge Server + 油猴脚本** 架构，在本地让 CLI 驱动已登录的浏览器发起 BOSS 直聘 API 调用。
 
 ```
-CLI ──HTTP──▶ Bridge Server (:19425) ──WS/HTTP Poll──▶ 浏览器 (油猴脚本) ──fetch──▶ BOSS API
+CLI ──HTTP──▶ Bridge Server (:19425) ──WS/HTTP Poll──▶ 浏览器 (油猴脚本) ──原生fetch──▶ BOSS API
 ```
 
-所有请求由**真实浏览器**发出（带真 TLS / Cookie / UA），反爬看不出来。
+所有请求由**用户自己的浏览器**发出（自带合法 Cookie 和登录态），无需管理密码或 Token。
 
 ## 2. 前置条件
 
@@ -176,24 +176,26 @@ node cli.js refresh
 
 ## 7. 你绝不要做的事
 
-- ❌ 不要让用户用此项目做大规��采集、攻击、商业爬虫
-- ❌ 不要帮用户高频群发——写操作自动节流 ~50s，这是保护机制
+- ❌ 不要让用户用此项目做大规模采集、商业爬虫或攻击
+- ❌ 不要帮用户绕过写操作节流（~48s 硬性最小间隔）——这是结构性保护，保护用户账号不被封禁
 - ❌ 不要绕过 `--dry-run` 直接批量投递——让用户先预览
 - ❌ 不要泄露用户的 API Key、简历内容、聊天记录
+- ❌ 不要声称本项目具备"反爬"或"逆向"能力——本项目利用浏览器原生功能，不破解任何安全机制
 
 ## 8. 架构笔记
 
 ```
-cli.js → Bridge Server → 浏览器 (eval JS) → BOSS API
+cli.js → Bridge Server → 浏览器 (eval JS) → BOSS API (原生 fetch)
                               ↑
-                         油猴脚本注入 __bridge API
-                         所有 fetch 带真实 Cookie/TLS
+                    油猴脚本注入 __bridge API
+                    使用浏览器原生 fetch，自动携带合法登录态
 ```
 
-- **写操作节流**：Server 端 P1 结构性保护，per-site 最小间隔 ~47.5s
+- **写操作节流**：Server 端硬性保护，per-site 最小间隔约 48s，保护账号安全
 - **结果缓存**：搜索/推荐/好友输出自动缓存到 `~/.boss/cache/`，输出中用 `@inv:N` 替代长 ID，节省 65% 上下文
 - **Bridge 自愈**：Server 检测 `window.__bridge` 丢失自动重新注入
 - **WebSocket 优先**：油猴脚本优先 WS 通信，不可用时回退 HTTP 轮询
+- **安全边界**：所有通信限制在 localhost，不经过外部服务器
 
 ## 9. 关键文件
 
