@@ -28,6 +28,7 @@
 
   let connected = false;
   let registered = false;
+  let connId = null;           // 服务端返回的连接 ID，poll 时回传用于更新活跃时间
   let retryCount = 0;
   let pollFailCount = 0;
   let wsActive = false;   // WebSocket 是否活跃（优先于 HTTP 轮询）
@@ -192,7 +193,9 @@
           registered = true;
           connected = true;
           retryCount = 0;
-          console.log('[Bridge:BOSS] Registered with Bridge Server');
+          var data = JSON.parse(r.responseText);
+          connId = data.id || null; // 保存服务端返回的连接 ID
+          console.log('[Bridge:BOSS] Registered with Bridge Server, id=' + (connId || '').slice(0, 8));
         } else {
           throw new Error('status ' + r.status);
         }
@@ -216,7 +219,9 @@
     }
     if (!registered) return;
     try {
-      var r = await gmFetch(CONFIG.server + '/api/poll?site=' + CONFIG.site, { method: 'GET' });
+      var pollUrl = CONFIG.server + '/api/poll?site=' + CONFIG.site;
+      if (connId) pollUrl += '&id=' + connId;
+      var r = await gmFetch(pollUrl, { method: 'GET' });
       if (r.status !== 200) throw new Error('status ' + r.status);
       var msg = JSON.parse(r.responseText);
 
