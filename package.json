@@ -19,6 +19,13 @@
     "friends": "node cli.js friends",
     "chat": "node cli.js chat",
     "contact": "node cli.js contact",
+    "inbox": "node cli.js inbox",
+    "chat-send": "node cli.js chat-send",
+    "apply": "node cli.js apply",
+    "unread": "node cli.js unread",
+    "exchange": "node cli.js exchange",
+    "llm-reply": "node cli.js llm-reply",
+    "build-userscript": "node scripts/build-userscript.js",
     "test": "vitest run"
   },
   "dependencies": {

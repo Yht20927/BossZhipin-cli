@@ -98,7 +98,7 @@ node cli.js contact <securityId> --jobId <id>
 node cli.js contact @search-xxx:2    # 用 @ref 引用
 ```
 
-### LLM 招呼语
+### LLM 招呼语 & 智能回复
 
 ```bash
 export LLM_API_KEY=sk-xxx
@@ -107,18 +107,26 @@ export LLM_MODEL=deepseek-chat
 
 node cli.js llm-greet <securityId|@ref> --jobId <id> --resume cv.txt
 node cli.js llm-greet @search-xxx:1 --dry-run   # 预览不发送
+node cli.js llm-reply @friends-xxx:1 "对方消息" --send   # 基于上下文生成回复并发送
 node cli.js llm-stats                            # LLM 调用统计
 ```
 
 ### 个人/社交
 
 ```bash
-node cli.js me                 # 用户信息
-node cli.js friends            # 好友列表
-node cli.js chat --secretId <id> | @ref  # 聊天历史
-node cli.js resume             # 简历完成度
-node cli.js expect             # 期望职位
+node cli.js me                  # 用户信息
+node cli.js friends [--page 1]  # 聊天会话列表（自动缓存，支持 @ref）
+node cli.js inbox [--page 1]    # 收到的 HR 招呼列表
+node cli.js unread              # 未读会话看板（待跟进）
+node cli.js chat <uid|@ref>     # 聊天消息历史
+node cli.js chat-send <uid|@ref> "消息"   # 发送聊天消息（打招呼后的跟进）
+node cli.js exchange <uid|@ref> --type wechat  # 请求交换手机号/微信
+node cli.js apply [--status 面试]  # 我的投递记录（含状态统计）
+node cli.js resume              # 完整简历（基本信息 + 期望 + 状态 + 完成度）
+node cli.js expect              # 期望职位
 ```
+
+> 求职主链路：`search` → `contact`/`greet-batch`（打招呼）→ `inbox`/`unread`（跟进）→ `chat`/`chat-send`/`llm-reply`（对话）→ `exchange`（交换联系方式）→ `apply`（追踪投递状态）
 
 ### 数据/参考
 
@@ -198,20 +206,26 @@ boss-cli/
 ├── cli.js                     # CLI 入口
 ├── server.js                  # Bridge Server
 ├── scripts/
-│   └── boss_zhipin.user.js    # 油猴脚本
+│   ├── boss_zhipin.user.js    # 油猴脚本（构建产物）
+│   ├── userscript.template.js # 油猴脚本框架模板
+│   └── build-userscript.js    # 从 bridge-api.js 生成油猴脚本
 ├── lib/
 │   ├── client/                # Bridge HTTP 客户端
 │   ├── server/                # WebSocket + Router + Registry
-│   ├── commands/              # 命令实现 (17个)
+│   ├── commands/              # 命令实现 (23个)
 │   ├── pipeline/              # 管线 (filter/sort/enrich/match/semantic)
 │   ├── cache/                 # 结果缓存 + @ref 系统
 │   ├── llm/                   # LLM 调用封装
 │   ├── output/                # 格式化 + CSV/SQLite 导出
-│   ├── shared/                # 协议 + 自愈代码
+│   ├── shared/                # 协议 + bridge-api.js（__bridge 唯一源）+ 自愈代码
 │   └── audit.js               # 审计日志 + LLM Telemetry
 └── docs/
     └── platform-notes.md      # 平台使用说明
 ```
+
+> 💡 `__bridge` API 定义唯一事实源在 `lib/shared/bridge-api.js`。修改后运行
+> `node scripts/build-userscript.js` 重新生成油猴脚本，并重新安装到 Tampermonkey
+> （Bridge Server 的自愈注入会自动同步，无需额外操作）。
 
 ## 文档
 

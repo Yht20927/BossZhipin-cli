@@ -11,7 +11,7 @@ const { BridgeClient } = require('./lib/client/bridge-client');
 const { transformResult } = require('./lib/transform');
 const { getCache } = require('./lib/cache/result-cache');
 const commands = require('./lib/commands');
-const { SITE, isRef, resolveRef } = require('./lib/commands/helpers');
+const { SITE } = require('./lib/commands/helpers');
 
 // Bridge 自愈代码：由 server/router.js 按需注入（每个 site 首次 eval 时自动 prepend）
 // 共享模块位于 lib/shared/bootstrap.js，cli.js 和 server/router.js 共用
@@ -87,34 +87,7 @@ const ctx = {
   bridgeCall,
   loggedCall,
   cache: getCache(),
-  isRef,
-  resolveRef: (str) => resolveRef(str, getCache()),
-  cmdSearch: null,
-  cmdJob: null,
-  cmdMe: null,
-  cmdFriends: null,
-  cmdChat: null,
-  cmdCity: null,
-  cmdRecommend: null,
 };
-
-ctx.cmdSearch = (args) => commands.search(ctx, args);
-ctx.cmdJob = (args) => commands.job(ctx, args);
-ctx.cmdMe = (args) => commands.me(ctx, args);
-ctx.cmdFriends = (args) => commands.friends(ctx, args);
-ctx.cmdChat = (args) => commands.chat(ctx, args);
-ctx.cmdCity = (args) => commands.city(ctx, args);
-ctx.cmdRecommend = (args) => commands.recommend(ctx, args);
-ctx.cmdFilters = (args) => commands.filters(ctx, args);
-ctx.cmdIndustries = (args) => commands.industries(ctx, args);
-ctx.cmdResume = (args) => commands.resume(ctx, args);
-ctx.cmdExpect = (args) => commands.expect(ctx, args);
-ctx.cmdContact = (args) => commands.contact(ctx, args);
-ctx.cmdGreetBatch = (args) => commands['greet-batch'](ctx, args);
-ctx.cmdLlmGreet = (args) => commands['llm-greet'](ctx, args);
-ctx.cmdLlmStats = (args) => commands['llm-stats'](ctx, args);
-ctx.cmdToken = (args) => commands.token(ctx, args);
-ctx.cmdRefresh = (args) => commands.refresh(ctx, args);
 
 // ═══════════════════════════════════════════════════════════
 // 帮助
@@ -140,14 +113,29 @@ BOSS Zhipin CLI (Bridge Framework)
   node cli.js me
       获取当前用户信息
 
-  node cli.js friends [--label 0]
-      获取好友/联系人列表
+  node cli.js friends [--page 1]
+      聊天会话列表（含最后消息/未读数，自动缓存）
 
-  node cli.js chat --secretId <secretId> [--lastId <id>] [--type 0]
-      拉取聊天消息历史
+  node cli.js inbox [--page 1]
+      收到的 HR 招呼列表
+
+  node cli.js chat <uid|@ref> [--securityId <sid>] [--page 1]
+      聊天消息历史
+
+  node cli.js chat-send <uid|@ref> <text>
+      向 HR 发送聊天消息（打招呼后的跟进；自动导航聊天页）
 
   node cli.js contact <securityId> --jobId <encryptJobId> [--lid <lid>]
       发送沟通请求（向 HR/老板打招呼）
+
+  node cli.js exchange <uid|@ref> [--type phone|wechat]
+      请求交换联系方式（手机号/微信）
+
+  node cli.js apply [--page 1] [--status 面试]
+      我的投递记录（含投递状态统计）
+
+  node cli.js unread [--page 1]
+      未读会话看板（哪些 HR 回复了待跟进）
 
   node cli.js greet-batch <keyword> [--count 5] [--min-salary <K>] [--interval 50]
       搜索 + 批量打招呼（自动搜前 N 个职位，逐一发送沟通请求）
@@ -155,7 +143,7 @@ BOSS Zhipin CLI (Bridge Framework)
 
   个人资料：
   node cli.js resume
-      查看简历完成度
+      查看完整简历（基本信息 + 期望 + 状态 + 完成度）
 
   node cli.js expect
       查看期望职位列表
@@ -169,6 +157,16 @@ BOSS Zhipin CLI (Bridge Framework)
 
   node cli.js industries
       获取行业分类数据
+
+  LLM 智能（需设置 LLM_API_KEY 环境变量）：
+  node cli.js llm-greet <securityId|@ref> --jobId <id> [--resume cv.txt] [--dry-run]
+      生成个性化招呼语（审核后发送）
+
+  node cli.js llm-reply <uid|@ref> "对方消息" [--send] [--resume cv.txt]
+      基于聊天上下文生成自然回复（--send 直接发送）
+
+  node cli.js llm-stats
+      查看 LLM 调用统计
 
   系统：
   node cli.js status

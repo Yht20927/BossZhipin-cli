@@ -87,13 +87,24 @@ node cli.js llm-greet <securityId|@inv:N>      # LLM 招呼语
     --jobId <id> --resume <path> --dry-run
 ```
 
+### 跟进 / 聊天（打招呼后的求职主链路）
+
+```bash
+node cli.js friends [--page 1]    # 聊天会话列表（自动缓存）
+node cli.js inbox [--page 1]      # 收到的 HR 招呼列表
+node cli.js unread                # 未读会话看板（待跟进）
+node cli.js chat <uid|@ref>       # 聊天消息历史
+node cli.js chat-send <uid|@ref> "消息"   # 发送聊天消息（自动导航聊天页）
+node cli.js exchange <uid|@ref> --type phone|wechat  # 请求交换手机号/微信
+node cli.js apply [--status 面试]  # 投递记录（含状态统计）
+node cli.js llm-reply <uid|@ref> "对方消息" --send  # LLM 生成回复并发送
+```
+
 ### 个人/社交
 
 ```bash
 node cli.js me                    # 用户信息
-node cli.js friends               # 好友列表（支持 @ref）
-node cli.js chat --secretId <id>  # 聊天历史（支持 @ref）
-node cli.js resume                # 简历完成度
+node cli.js resume                # 完整简历（基本信息+期望+状态+完成度）
 node cli.js expect                # 期望职位
 ```
 
@@ -250,15 +261,19 @@ config.json         # Bridge 连接配置
 match-profile.example.json  # 匹配评分示例
 lib/client/         # Bridge HTTP 客户端
 lib/server/         # WebSocket Hub + Router + Registry
-lib/commands/       # 所有命令实现 (17个)
+lib/commands/       # 所有命令实现 (23个)
 lib/pipeline/       # 数据管线 (filter/sort/enrich/match/semantic)
 lib/cache/          # 结果缓存 + @ref 系统
-lib/llm/            # LLM 调用封装
+lib/llm/            # LLM 调用封装（招呼语 + 聊天回复）
 lib/output/         # 格式化 + CSV/SQLite 导出
+lib/shared/bridge-api.js  # __bridge API 唯一事实源（改这里，油猴+自愈同步）
 lib/shared/         # Bootstrap + 协议 + 序列化
 lib/audit.js        # 审计日志
 lib/jitter.js       # 随机抖动（拟人化延迟）
-scripts/            # 油猴脚本 + bridge.sh
+scripts/            # 油猴脚本模板 + 构建脚本 + bridge.sh
 prompts/            # LLM prompt 模板
 docs/               # 平台使用说明
 ```
+
+> ⚠️ **改 `__bridge` API 后必须**：`node scripts/build-userscript.js` 重新生成油猴脚本，
+> 并重新安装到 Tampermonkey。Bridge Server 自愈注入自动同步。
